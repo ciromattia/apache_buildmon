@@ -5,6 +5,15 @@ import argparse
 from citool import Citool
 
 
+def projectQuery(queryString):
+
+    # Elenca tutti i progetti che contengono 'queryString'
+    
+    jenkins = Citool(proxyset, parsed_args.verbosity)
+    jenkins.showProjects(queryString)
+
+    return ''
+
 def projectInfo(projectName):
 
     # Per 'projectName', recupera info sull'ultima build completata e le ultime 10 build.
@@ -30,6 +39,9 @@ if __name__ == '__main__':
     if parsed_args.dump:
         jenkins = Citool(proxyset, parsed_args.verbosity)
         jenkins.query()
+
+    if parsed_args.query:
+        projectQuery(parsed_args.query)
 
     if parsed_args.show:
         projectName = parsed_args.show

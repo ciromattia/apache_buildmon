@@ -6,6 +6,7 @@ import re
 import sys
 import collections
 import logging
+import time
 
 
 class Citool(object):
@@ -53,7 +54,7 @@ class Citool(object):
         allProjects = eval(urllib2.urlopen(self.buildurl + self.pyapi).read())
 
         if len(thisProject) == 0:
-            logging.info("Elenca i nomi di progetti in hosting su builds.apache.org")
+            logging.info("Elenco i nomi di progetti in hosting su builds.apache.org")
             for project in allProjects['jobs']:
                 print project.get('name')
             return ''
@@ -69,6 +70,19 @@ class Citool(object):
                 sys.exit()
 
 
+    def getBuildTime(self, buildInfo):
+
+        # Ritorna gli orari di inizio e completamento dalla struttura 'buildInfo'.
+
+        self.buildInfo = buildInfo
+
+        unixtime = self.buildInfo['timestamp']
+        duration = self.buildInfo['duration']
+
+        startTime = time.strftime('%a %b %d %H:%M:%S', time.gmtime(unixtime/1000))
+        runTime   = time.strftime('%H:%M:%S', time.gmtime(duration/1000))
+
+        return (startTime, runTime)
 
     def getBuildCause(self, buildInfo):
 
@@ -91,7 +105,6 @@ class Citool(object):
         return buildCause
 
 
-
     def showLatestBuild(self, projectInfo):
 
         """ Usando 'projectInfo' (output API REST), ottieni:
@@ -102,18 +115,20 @@ class Citool(object):
         logging.info("L'ultima build completata di {0} è {1}".format(self.projectName, projectInfo['lastCompletedBuild']['url']))
         lastBuildInfo = eval(urllib2.urlopen(projectInfo['lastCompletedBuild']['url'] + self.pyapi).read())
 
+        buildStartedAt, buildEndedAt = self.getBuildTime(lastBuildInfo)
         startedBy = self.getBuildCause(lastBuildInfo)
         if lastBuildInfo['building'] == False and lastBuildInfo['result'] == "SUCCESS":
             print("La build è stata iniziata da {0}".format(startedBy))
             print("Ed è stata completata senza errori")
         if lastBuildInfo['building'] == False and lastBuildInfo['result'] == "FAILURE":
             print("La build è stata iniziata da {0}".format(startedBy))
-            print("Ed è non è stata completata a causa di errori")
+            print("E non è stata completata a causa di errori")
         if lastBuildInfo['building'] == False and lastBuildInfo['result'] == "ABORTED":
             print("La build è stata iniziata da {0}".format(startedBy))
             print("Ed è stata abortita")
 
         return ''
+
 
 
     def showLastTen(self, projectInfo):
@@ -141,8 +156,39 @@ class Citool(object):
             counter += 1
 
         for job, status in zip(buildUrls, buildResult):
-            print("Stato della build, {0} è, {1}".format(job, status))
+            print("Stato della build, {0}: {1}".format(job, status))
             buildStats.update({job : status})
+
+        return ''
+
+    def showProjects(self, projectString):
+
+        """ Per 'projectName', interroga il tcloud jenkins ed elenca
+
+        i nomi dei progetti che contengono 'projectString'.
+        """
+
+        projects = []
+        matched  = []
+
+        self.projectString = projectString
+
+        logging.debug("Python API per strumento CI: %s" %(self.buildurl + self.pyapi))
+        allProjects = eval(urllib2.urlopen(self.buildurl + self.pyapi).read())
+
+        logging.info("Recupero nomi di tutti i progetti...")
+        for i in allProjects['jobs']:
+            projects.append(i['name'])
+        logging.info("Controllo %s in elenco progetti..." %(self. projectString))
+        lookupStr = re.compile(self.projectString, re.IGNORECASE)
+        for i in projects:
+            lookupResult = re.findall(lookupStr, i)
+            logging.debug("Risultati ricerca: %s" %(lookupResult))
+            if len(lookupResult) != 0:
+                matched.append(i)
+
+        for prj in matched:
+            print("Il progetto {0} corrisponde alla stringa di ricerca".format(prj))
 
         return ''
 
